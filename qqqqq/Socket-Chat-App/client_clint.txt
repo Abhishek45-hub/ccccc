@@ -1,0 +1,54 @@
+import socket
+import ssl
+import threading
+import sys
+import signal
+
+# Signal handler for Ctrl+C
+def ctrl_c(signal, frame):
+    global flag
+    flag = True
+    print("\nexited")
+    sys.exit(0)
+
+# Function to handle sending messages
+def send_f(ssl_conn):
+    while True:
+        message = input("> ")
+        ssl_conn.write(message.encode())
+        if message == "exit":
+            break
+
+# Function to handle receiving messages
+def recv_f(ssl_conn):
+    while True:
+        message = ssl_conn.read(5000).decode()
+        if message:
+            print(message)
+            if message == "[+] Enter file name: ":
+                action = 1
+            if message == "[+] student is present.":
+                action = 4
+        else:
+            break
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGINT, ctrl_c)
+    
+    # Establishing SSL connection
+    ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    ssl_conn = ctx.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
+    ssl_conn.connect(('127.0.0.1', 8080))
+
+    # Starting sending and receiving threads
+    send_thread = threading.Thread(target=send_f, args=(ssl_conn,))
+    recv_thread = threading.Thread(target=recv_f, args=(ssl_conn,))
+    send_thread.start()
+    recv_thread.start()
+
+    # Waiting for threads to finish
+    send_thread.join()
+    recv_thread.join()
+
+    # Closing the connection
+    ssl_conn.close()
